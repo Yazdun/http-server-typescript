@@ -2,30 +2,24 @@ import * as net from "net";
 
 console.log("Logs from your program will appear here!");
 
-// Request line
-// GET                          // HTTP method
-// /index.html                  // Request target
-// HTTP/1.1                     // HTTP version
-// \r\n                         // CRLF that marks the end of the request line
-//
-// // Headers
-// Host: localhost:4221\r\n     // Header that specifies the server's host and port
-// User-Agent: curl/7.64.1\r\n  // Header that describes the client's user agent
-// Accept: */*\r\n              // Header that specifies which media types the client can accept
-// \r\n                         // CRLF that marks the end of the headers
+// $ curl -v http://localhost:4221/echo/abc
+// Your server must respond with a 200 response that contains the following parts:
 
-// Request body (empty)
+// Content-Type header set to text/plain.
+// Content-Length header set to the length of the given string.
+// Response body set to the given string.
 
 type Request = {
   method: string;
   path: string[];
   protocol: string;
   headers: Map<string, string>;
+  body?: string;
 };
 
 const CRLF = "\r\n";
 
-function helper(str: string): Request {
+function parser(str: string): Request {
   const [_, body] = str.split(CRLF + CRLF);
   const [reqLine, ...rest] = _.split(CRLF);
 
@@ -35,6 +29,7 @@ function helper(str: string): Request {
 
   for (const line of rest) {
     const index = line.indexOf(":");
+
     if (index !== -1) {
       const key = line.slice(0, index).trim();
       const value = line.slice(index + 1).trim();
@@ -49,18 +44,24 @@ function helper(str: string): Request {
     path: pathname.split("/").filter(Boolean),
     protocol,
     headers: headers,
+    body,
   };
 }
 
 const server = net.createServer((socket) => {
   socket.on("data", (data) => {
-    const req = data.toString();
     const ok = "HTTP/1.1 200 OK\r\n\r\n";
     const err = "HTTP/1.1 404 Not Found\r\n\r\n";
 
-    const val = helper(data.toString());
+    const val = parser(data.toString());
+    console.log(val);
 
-    if (val.path.length > 0) {
+    if (val.path[0] === "echo") {
+      const param = val.path[1];
+      socket.write(
+        `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${param.length}\r\n\r\n${param}`,
+      );
+    } else if (val.path.length > 0) {
       socket.write(err);
     } else {
       socket.write(ok);
