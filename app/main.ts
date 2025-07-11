@@ -59,6 +59,7 @@ function parser(str: string): Request {
 const server = net.createServer((socket) => {
   socket.on("data", (data) => {
     const val = parser(data.toString());
+
     console.log(val);
 
     const base = val.path[0];
@@ -129,7 +130,7 @@ const server = net.createServer((socket) => {
 
             fs.writeFileSync(filePath, content);
 
-            socket.write("HTTP/1.1 201 Created\r\n");
+            socket.write("HTTP/1.1 201 Created\r\n\r\n");
             break;
           }
           default: {
