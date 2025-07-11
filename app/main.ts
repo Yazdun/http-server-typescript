@@ -80,11 +80,6 @@ const server = net.createServer((socket) => {
       }
 
       case "files": {
-        if (val.method !== "GET") {
-          socket.write("HTTP/1.1 405 Method Not Allowed\r\n\r\n");
-          break;
-        }
-
         if (!param) {
           socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
           break;
@@ -94,27 +89,53 @@ const server = net.createServer((socket) => {
           socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
           break;
         }
+        switch (val.method) {
+          case "GET": {
+            const filePath = path.join(dirFlag, param);
 
-        const filePath = path.join(dirFlag, param);
+            if (!filePath.startsWith(dirFlag)) {
+              socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+              break;
+            }
 
-        if (!filePath.startsWith(dirFlag)) {
-          socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
-          break;
-        }
-
-        if (fs.existsSync(filePath)) {
-          try {
-            const fileContent = fs.readFileSync(filePath);
-            console.log(filePath);
-            console.log(fileContent);
-            socket.write(
-              `HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${fileContent.length}\r\n\r\n${fileContent.toString()}`,
-            );
-          } catch (err) {
-            socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+            if (fs.existsSync(filePath)) {
+              try {
+                const fileContent = fs.readFileSync(filePath);
+                socket.write(
+                  `HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${fileContent.length}\r\n\r\n${fileContent.toString()}`,
+                );
+              } catch (err) {
+                socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+              }
+            } else {
+              socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+            }
+            break;
           }
-        } else {
-          socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+          case "POST": {
+            if (!param) {
+              socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+              break;
+            }
+
+            const content = val.body;
+
+            const filePath = `${dirFlag}/${param}`;
+
+            if (!content) {
+              socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+              break;
+            }
+
+            fs.writeFileSync(filePath, content);
+
+            socket.write("HTTP/1.1 201 Created\r\n");
+            break;
+          }
+          default: {
+            socket.write("HTTP/1.1 405 Method Not Allowed\r\n\r\n");
+            break;
+          }
         }
 
         break;
