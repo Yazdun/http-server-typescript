@@ -1,6 +1,21 @@
 import * as net from "net";
+import * as fs from "fs";
+import * as path from "path";
 
 console.log("Logs from your program will appear here!");
+
+const args = process.argv;
+
+const dirIdx = args.indexOf("--directory");
+const hasDirFlag: boolean = dirIdx !== -1;
+let dirFlag: null | string = null;
+
+if (dirIdx + 1 >= args.length) {
+  console.error("Error: --directory flag is required with a valid path");
+  process.exit(1);
+}
+
+if (hasDirFlag) dirFlag = args[dirIdx + 1];
 
 type Request = {
   method: string;
@@ -48,7 +63,7 @@ const server = net.createServer((socket) => {
 
     const base = val.path[0];
     const param = val.path[1];
-    console.log(base);
+
     switch (base) {
       case undefined: {
         socket.write("HTTP/1.1 200 OK\r\n\r\n");
@@ -60,6 +75,47 @@ const server = net.createServer((socket) => {
         socket.write(
           `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${param.length}\r\n\r\n${param}`,
         );
+
+        break;
+      }
+
+      case "files": {
+        if (val.method !== "GET") {
+          socket.write("HTTP/1.1 405 Method Not Allowed\r\n\r\n");
+          break;
+        }
+
+        if (!param) {
+          socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+          break;
+        }
+
+        if (!dirFlag) {
+          socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+          break;
+        }
+
+        const filePath = path.join(dirFlag, param);
+
+        if (!filePath.startsWith(dirFlag)) {
+          socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+          break;
+        }
+
+        if (fs.existsSync(filePath)) {
+          try {
+            const fileContent = fs.readFileSync(filePath);
+            console.log(filePath);
+            console.log(fileContent);
+            socket.write(
+              `HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${fileContent.length}\r\n\r\n${fileContent.toString()}`,
+            );
+          } catch (err) {
+            socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+          }
+        } else {
+          socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+        }
 
         break;
       }
