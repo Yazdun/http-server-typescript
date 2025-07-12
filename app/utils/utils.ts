@@ -1,3 +1,9 @@
+import { gzipSync } from "node:zlib";
+
+const buffer = new Uint8Array([0x01, 0x02, 0x03]);
+
+console.log(buffer);
+
 export type Request = {
   method: string;
   path: string[];
@@ -88,43 +94,55 @@ export class Utils {
     };
   }
 
-  generateResponse(options: ResponseOptions): string {
+  generateResponse(options: ResponseOptions): {
+    headers: string;
+    body: Uint8Array | string;
+  } {
     const { status, contentType, contentLength, body = "", headers } = options;
-    let response = `HTTP/1.1 ${status} ${statusMessages[status]}${CRLF}`;
+    let _headers = `HTTP/1.1 ${status} ${statusMessages[status]}${CRLF}`;
+    let _body: Uint8Array | string = body;
+    let shouldCompress = false;
 
-    if (contentType) response += `Content-Type: ${contentType}${CRLF}`;
+    if (contentType) _headers += `Content-Type: ${contentType}${CRLF}`;
 
-    if (contentLength !== undefined) {
-      response += `Content-Length: ${contentLength}${CRLF}`;
-    }
     if (headers) {
       Array.from(headers, ([header, value]) => ({ header, value })).forEach(
         (item) => {
           switch (item.header) {
             case "Accept-Encoding": {
-              console.log(item.value.split(","));
               const encodings = item.value
                 .split(",")
                 .filter((i) => supportedEncodings.includes(i.trim()))
                 .join(", ")
                 .trim();
-              console.log(encodings);
-              if (encodings.length)
-                response += `Content-Encoding: ${encodings}${CRLF}`;
+
+              if (encodings.length) {
+                shouldCompress = true;
+
+                _headers += `Content-Encoding: ${encodings}${CRLF}`;
+              }
               break;
             }
             default: {
-              response += `${item.value}: ${item.value}${CRLF}`;
+              _headers += `${item.value}: ${item.value}${CRLF}`;
               break;
             }
           }
         },
       );
     }
-    response += CRLF;
 
-    if (body) response += body;
+    if (shouldCompress) {
+      _body = new Uint8Array(gzipSync(new TextEncoder().encode(body)));
+      _headers += `Content-Length: ${_body.length}${CRLF}`;
+    } else if (contentLength !== undefined)
+      _headers += `Content-Length: ${_body.length}${CRLF}`;
 
-    return response;
+    _headers += CRLF;
+
+    return {
+      headers: _headers,
+      body: _body,
+    };
   }
 }

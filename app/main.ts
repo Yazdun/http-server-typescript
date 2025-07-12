@@ -18,31 +18,33 @@ const server = net.createServer((socket) => {
 
     switch (base) {
       case undefined: {
-        socket.write(utils.generateResponse({ status: 200 }));
+        socket.write(utils.generateResponse({ status: 200 }).headers);
         break;
       }
 
       case "echo": {
-        socket.write(
-          utils.generateResponse({
-            status: 200,
-            contentType: "text/plain",
-            contentLength: param.length,
-            headers: req.headers,
-            body: param,
-          }),
-        );
+        const response = utils.generateResponse({
+          status: 200,
+          contentType: "text/plain",
+          contentLength: param.length,
+          headers: req.headers,
+          body: param,
+        });
+
+        socket.write(response.headers);
+        socket.write(response.body);
+
         break;
       }
 
       case "files": {
         if (!param) {
-          socket.write(utils.generateResponse({ status: 400 }));
+          socket.write(utils.generateResponse({ status: 400 }).headers);
           break;
         }
 
         if (!dirFlag) {
-          socket.write(utils.generateResponse({ status: 400 }));
+          socket.write(utils.generateResponse({ status: 400 }).headers);
           break;
         }
 
@@ -51,33 +53,34 @@ const server = net.createServer((socket) => {
             const filePath = path.join(dirFlag, param);
 
             if (!filePath.startsWith(dirFlag)) {
-              socket.write(utils.generateResponse({ status: 403 }));
+              socket.write(utils.generateResponse({ status: 403 }).headers);
               break;
             }
 
             if (fs.existsSync(filePath)) {
               try {
                 const fileContent = fs.readFileSync(filePath);
-                socket.write(
-                  utils.generateResponse({
-                    status: 200,
-                    contentType: "application/octet-stream",
-                    contentLength: fileContent.length,
-                    body: fileContent.toString(),
-                  }),
-                );
+                const response = utils.generateResponse({
+                  status: 200,
+                  contentType: "application/octet-stream",
+                  contentLength: fileContent.length,
+                  body: fileContent.toString(),
+                });
+
+                socket.write(response.headers);
+                socket.write(response.body);
               } catch (err) {
-                socket.write(utils.generateResponse({ status: 500 }));
+                socket.write(utils.generateResponse({ status: 500 }).headers);
               }
             } else {
-              socket.write(utils.generateResponse({ status: 404 }));
+              socket.write(utils.generateResponse({ status: 404 }).headers);
             }
             break;
           }
 
           case "POST": {
             if (!param) {
-              socket.write(utils.generateResponse({ status: 400 }));
+              socket.write(utils.generateResponse({ status: 400 }).headers);
               break;
             }
 
@@ -86,17 +89,17 @@ const server = net.createServer((socket) => {
             const filePath = `${dirFlag}/${param}`;
 
             if (!content) {
-              socket.write(utils.generateResponse({ status: 400 }));
+              socket.write(utils.generateResponse({ status: 400 }).headers);
               break;
             }
 
             fs.writeFileSync(filePath, content);
 
-            socket.write(utils.generateResponse({ status: 201 }));
+            socket.write(utils.generateResponse({ status: 201 }).headers);
             break;
           }
           default: {
-            socket.write(utils.generateResponse({ status: 405 }));
+            socket.write(utils.generateResponse({ status: 405 }).headers);
             break;
           }
         }
@@ -109,19 +112,20 @@ const server = net.createServer((socket) => {
 
         if (!userAgent) throw new Error("failed to retrieve user agent");
 
-        socket.write(
-          utils.generateResponse({
-            status: 200,
-            contentType: "text/plain",
-            contentLength: userAgent.length,
-            body: userAgent,
-          }),
-        );
+        const response = utils.generateResponse({
+          status: 200,
+          contentType: "text/plain",
+          contentLength: userAgent.length,
+          body: userAgent,
+        });
+
+        socket.write(response.headers);
+        socket.write(response.body);
 
         break;
       }
       default: {
-        socket.write(utils.generateResponse({ status: 404 }));
+        socket.write(utils.generateResponse({ status: 404 }).headers);
         break;
       }
     }
