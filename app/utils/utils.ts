@@ -1,4 +1,5 @@
 import { gzipSync } from "node:zlib";
+import * as net from "net";
 
 export type Request = {
   method: string;
@@ -42,8 +43,14 @@ const supportedEncodings = ["gzip"];
 
 const CRLF = "\r\n";
 
-export class Utils {
-  initializer(): Initializer {
+export class HttpHelper {
+  private _socket: net.Socket;
+
+  constructor(socket: net.Socket) {
+    this._socket = socket;
+  }
+
+  static initializer(): Initializer {
     const args = process.argv;
     const dirIdx = args.indexOf("--directory");
     const hasDirFlag: boolean = dirIdx !== -1;
@@ -90,6 +97,23 @@ export class Utils {
     };
   }
 
+  get socket() {
+    return {
+      write: (options: ResponseOptions) => {
+        const { headers, body } = this.generateResponse(options);
+
+        const shouldCloseConnection =
+          options.headers?.get("Connection") === "close";
+
+        this._socket.write(headers);
+
+        if (body) this._socket.write(body);
+
+        if (shouldCloseConnection) this._socket.end();
+      },
+    };
+  }
+
   generateResponse(options: ResponseOptions): {
     headers: string;
     body: Uint8Array | string;
@@ -120,7 +144,7 @@ export class Utils {
               break;
             }
             default: {
-              _headers += `${item.value}: ${item.value}${CRLF}`;
+              _headers += `${item.header}: ${item.value}${CRLF}`;
               break;
             }
           }

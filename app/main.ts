@@ -1,29 +1,29 @@
 import * as net from "net";
 import * as fs from "fs";
 import * as path from "path";
-import { Utils } from "@/utils/utils";
+import { HttpHelper } from "@/utils/utils";
 
 console.log("Logs from your program will appear here!");
 
-const utils = new Utils();
-
-const { dirFlag } = utils.initializer();
+const { dirFlag } = HttpHelper.initializer();
 
 const server = net.createServer((socket) => {
   socket.on("data", (data) => {
-    const req = utils.parseBuffer(data.toString());
+    const httpHelper = new HttpHelper(socket);
+
+    const req = httpHelper.parseBuffer(data.toString());
 
     const base = req.path[0];
     const param = req.path[1];
 
     switch (base) {
       case undefined: {
-        socket.write(utils.generateResponse({ status: 200 }).headers);
+        httpHelper.socket.write({ status: 200, headers: req.headers });
         break;
       }
 
       case "echo": {
-        const response = utils.generateResponse({
+        httpHelper.socket.write({
           status: 200,
           contentType: "text/plain",
           contentLength: param.length,
@@ -31,20 +31,17 @@ const server = net.createServer((socket) => {
           body: param,
         });
 
-        socket.write(response.headers);
-        socket.write(response.body);
-
         break;
       }
 
       case "files": {
         if (!param) {
-          socket.write(utils.generateResponse({ status: 400 }).headers);
+          httpHelper.socket.write({ status: 400 });
           break;
         }
 
         if (!dirFlag) {
-          socket.write(utils.generateResponse({ status: 400 }).headers);
+          httpHelper.socket.write({ status: 400 });
           break;
         }
 
@@ -53,34 +50,31 @@ const server = net.createServer((socket) => {
             const filePath = path.join(dirFlag, param);
 
             if (!filePath.startsWith(dirFlag)) {
-              socket.write(utils.generateResponse({ status: 403 }).headers);
+              httpHelper.socket.write({ status: 403 });
               break;
             }
 
             if (fs.existsSync(filePath)) {
               try {
                 const fileContent = fs.readFileSync(filePath);
-                const response = utils.generateResponse({
+                httpHelper.socket.write({
                   status: 200,
                   contentType: "application/octet-stream",
                   contentLength: fileContent.length,
                   body: fileContent.toString(),
                 });
-
-                socket.write(response.headers);
-                socket.write(response.body);
               } catch (err) {
-                socket.write(utils.generateResponse({ status: 500 }).headers);
+                httpHelper.socket.write({ status: 500 });
               }
             } else {
-              socket.write(utils.generateResponse({ status: 404 }).headers);
+              httpHelper.socket.write({ status: 404 });
             }
             break;
           }
 
           case "POST": {
             if (!param) {
-              socket.write(utils.generateResponse({ status: 400 }).headers);
+              httpHelper.socket.write({ status: 400 });
               break;
             }
 
@@ -89,17 +83,18 @@ const server = net.createServer((socket) => {
             const filePath = `${dirFlag}/${param}`;
 
             if (!content) {
-              socket.write(utils.generateResponse({ status: 400 }).headers);
+              httpHelper.socket.write({ status: 400 });
               break;
             }
 
             fs.writeFileSync(filePath, content);
 
-            socket.write(utils.generateResponse({ status: 201 }).headers);
+            httpHelper.socket.write({ status: 201 });
+
             break;
           }
           default: {
-            socket.write(utils.generateResponse({ status: 405 }).headers);
+            httpHelper.socket.write({ status: 405 });
             break;
           }
         }
@@ -112,20 +107,17 @@ const server = net.createServer((socket) => {
 
         if (!userAgent) throw new Error("failed to retrieve user agent");
 
-        const response = utils.generateResponse({
+        httpHelper.socket.write({
           status: 200,
           contentType: "text/plain",
           contentLength: userAgent.length,
           body: userAgent,
         });
 
-        socket.write(response.headers);
-        socket.write(response.body);
-
         break;
       }
       default: {
-        socket.write(utils.generateResponse({ status: 404 }).headers);
+        httpHelper.socket.write({ status: 404 });
         break;
       }
     }
