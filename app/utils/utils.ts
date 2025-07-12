@@ -102,8 +102,15 @@ export class Utils {
         (item) => {
           switch (item.header) {
             case "Accept-Encoding": {
-              if (supportedEncodings.includes(item.value))
-                response += `Content-Encoding: ${item.value}${CRLF}`;
+              console.log(item.value.split(","));
+              const encodings = item.value
+                .split(",")
+                .filter((i) => supportedEncodings.includes(i.trim()))
+                .join(", ")
+                .trim();
+              console.log(encodings);
+              if (encodings.length)
+                response += `Content-Encoding: ${encodings}${CRLF}`;
               break;
             }
             default: {
