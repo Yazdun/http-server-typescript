@@ -129,8 +129,6 @@ const server = net.createServer((socket) => {
         break;
       }
     }
-
-    socket.end();
   });
 
   socket.on("close", () => {

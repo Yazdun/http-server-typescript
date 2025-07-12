@@ -1,9 +1,5 @@
 import { gzipSync } from "node:zlib";
 
-const buffer = new Uint8Array([0x01, 0x02, 0x03]);
-
-console.log(buffer);
-
 export type Request = {
   method: string;
   path: string[];
